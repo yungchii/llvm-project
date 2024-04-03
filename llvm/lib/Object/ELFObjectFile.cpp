@@ -599,6 +599,7 @@ void ELFObjectFileBase::setARMSubArch(Triple &TheTriple) const {
 
 std::vector<std::pair<std::optional<DataRefImpl>, uint64_t>>
 ELFObjectFileBase::getPltAddresses() const {
+    errs() << __FUNCTION__ << "  " << __LINE__ <<"\n";
   std::string Err;
   const auto Triple = makeTriple();
   const auto *T = TargetRegistry::lookupTarget(Triple.str(), Err);

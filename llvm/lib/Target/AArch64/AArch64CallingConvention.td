@@ -382,7 +382,8 @@ def CC_AArch64_GHC : CallingConv<[
   CCIfType<[i8, i16, i32], CCPromoteToType<i64>>,
 
   // Pass in STG registers: Base, Sp, Hp, R1, R2, R3, R4, R5, R6, SpLim
-  CCIfType<[i64], CCAssignToReg<[X19, X20, X21, X22, X23, X24, X25, X26, X27, X28]>>
+  //vicky
+  CCIfType<[i64], CCAssignToReg<[X18, X19, X20, X21, X22, X23, X24, X25, X26, X27, X28]>>
 ]>;
 
 // The order of the callee-saves in this file is important, because the
@@ -399,7 +400,8 @@ def CC_AArch64_GHC : CallingConv<[
 // It would be better to model its preservation semantics properly (create a
 // vreg on entry, use it in RET & tail call generation; make that vreg def if we
 // end up saving LR as part of a call frame). Watch this space...
-def CSR_AArch64_AAPCS : CalleeSavedRegs<(add X19, X20, X21, X22, X23, X24,
+//vicky
+def CSR_AArch64_AAPCS : CalleeSavedRegs<(add X18, X19, X20, X21, X22, X23, X24,
                                            X25, X26, X27, X28, LR, FP,
                                            D8,  D9,  D10, D11,
                                            D12, D13, D14, D15)>;
@@ -411,7 +413,8 @@ def CSR_AArch64_AAPCS_X18 : CalleeSavedRegs<(add X18, CSR_AArch64_AAPCS)>;
 // Win64 has unwinding codes for an (FP,LR) pair, save_fplr and save_fplr_x.
 // We put FP before LR, so that frame lowering logic generates (FP,LR) pairs,
 // and not (LR,FP) pairs.
-def CSR_Win_AArch64_AAPCS : CalleeSavedRegs<(add X19, X20, X21, X22, X23, X24,
+//vicky
+def CSR_Win_AArch64_AAPCS : CalleeSavedRegs<(add X18, X19, X20, X21, X22, X23, X24,
                                                X25, X26, X27, X28, FP, LR,
                                                D8, D9, D10, D11,
                                                D12, D13, D14, D15)>;

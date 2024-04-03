@@ -289,6 +289,7 @@ Error COFFLinkGraphBuilder::handleDirectiveSection(StringRef Str) {
     case COFF_OPT_incl: {
       auto DataCopy = G->allocateString(S);
       StringRef StrCopy(DataCopy.data(), DataCopy.size());
+      errs() << "strcopy: " << StrCopy << "\n";
       ExternalSymbols[StrCopy] = &G->addExternalSymbol(StrCopy, 0, false);
       ExternalSymbols[StrCopy]->setLive(true);
       break;
@@ -358,6 +359,7 @@ Error COFFLinkGraphBuilder::handleAlternateNames() {
 Symbol *COFFLinkGraphBuilder::createExternalSymbol(
     COFFSymbolIndex SymIndex, StringRef SymbolName,
     object::COFFSymbolRef Symbol, const object::coff_section *Section) {
+    errs() << "SymbolName: " << SymbolName << "\n";
   if (!ExternalSymbols.count(SymbolName))
     ExternalSymbols[SymbolName] =
         &G->addExternalSymbol(SymbolName, Symbol.getValue(), false);

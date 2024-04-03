@@ -414,6 +414,7 @@ void PEI::calculateSaveRestoreBlocks(MachineFunction &MF) {
 
   // Save refs to entry and return blocks.
   SaveBlocks.push_back(&MF.front());
+  LLVM_DEBUG(dbgs() << MF.front().front() << "\n");
   for (MachineBasicBlock &MBB : MF) {
     if (MBB.isEHFuncletEntry())
       SaveBlocks.push_back(&MBB);
@@ -457,6 +458,7 @@ static void assignCalleeSavedSpillSlots(MachineFunction &F,
 
   const TargetFrameLowering *TFI = F.getSubtarget().getFrameLowering();
   MachineFrameInfo &MFI = F.getFrameInfo();
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << " " << __LINE__ << "\n");
   if (!TFI->assignCalleeSavedSpillSlots(F, RegInfo, CSI, MinCSFrameIndex,
                                         MaxCSFrameIndex)) {
     // If target doesn't implement this, use generic code.
@@ -477,6 +479,7 @@ static void assignCalleeSavedSpillSlots(MachineFunction &F,
         continue;
 
       unsigned Reg = CS.getReg();
+      LLVM_DEBUG(dbgs() << "is not spilled Reg: " << Reg << "\n");
       const TargetRegisterClass *RC = RegInfo->getMinimalPhysRegClass(Reg);
 
       int FrameIdx;
@@ -501,6 +504,7 @@ static void assignCalleeSavedSpillSlots(MachineFunction &F,
         // min.
         Alignment = std::min(Alignment, TFI->getStackAlign());
         FrameIdx = MFI.CreateStackObject(Size, Alignment, true);
+	LLVM_DEBUG(dbgs() << "FrameIdx: " << FrameIdx << "\n");
         if ((unsigned)FrameIdx < MinCSFrameIndex) MinCSFrameIndex = FrameIdx;
         if ((unsigned)FrameIdx > MaxCSFrameIndex) MaxCSFrameIndex = FrameIdx;
       } else {
@@ -630,6 +634,7 @@ static void insertCSRRestores(MachineBasicBlock &RestoreBlock,
   if (!TFI->restoreCalleeSavedRegisters(RestoreBlock, I, CSI, TRI)) {
     for (const CalleeSavedInfo &CI : reverse(CSI)) {
       unsigned Reg = CI.getReg();
+      LLVM_DEBUG(dbgs() << __FUNCTION__ << " " << __LINE__ << "\n");
       if (CI.isSpilledToReg()) {
         BuildMI(RestoreBlock, I, DebugLoc(), TII.get(TargetOpcode::COPY), Reg)
           .addReg(CI.getDstReg(), getKillRegState(true));
@@ -840,10 +845,12 @@ static void AssignProtectedObjSet(const StackObjSet &UnassignedObjs,
 /// calculateFrameObjectOffsets - Calculate actual frame offsets for all of the
 /// abstract stack objects.
 void PEI::calculateFrameObjectOffsets(MachineFunction &MF) {
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << " " << __LINE__ << "\n");
   const TargetFrameLowering &TFI = *MF.getSubtarget().getFrameLowering();
 
   bool StackGrowsDown =
     TFI.getStackGrowthDirection() == TargetFrameLowering::StackGrowsDown;
+  LLVM_DEBUG(dbgs() << (StackGrowsDown ? "StackGrowsDown\n" : "StackGrowsUp\n"));
 
   // Loop over all of the stack objects, assigning sequential addresses...
   MachineFrameInfo &MFI = MF.getFrameInfo();
@@ -852,6 +859,7 @@ void PEI::calculateFrameObjectOffsets(MachineFunction &MF) {
   // The Offset is the distance from the stack top in the direction
   // of stack growth -- so it's always nonnegative.
   int LocalAreaOffset = TFI.getOffsetOfLocalArea();
+  LLVM_DEBUG(dbgs() << "localAreaOffset: " << LocalAreaOffset << "\n");
   if (StackGrowsDown)
     LocalAreaOffset = -LocalAreaOffset;
   assert(LocalAreaOffset >= 0
@@ -884,10 +892,15 @@ void PEI::calculateFrameObjectOffsets(MachineFunction &MF) {
       // the object -- which is given by offset. For down growing stack
       // the offset is negative, so we negate the offset to get the distance.
       FixedOff = -MFI.getObjectOffset(i);
-    } else {
+      LLVM_DEBUG(dbgs() << "FixedOff: " << FixedOff << "\n");
+      LLVM_DEBUG(dbgs() << "MFI.getObjectOffset: " << MFI.getObjectOffset(i) << "\n");
+      } else {
       // The maximum distance from the start pointer is at the upper
       // address of the object.
       FixedOff = MFI.getObjectOffset(i) + MFI.getObjectSize(i);
+      LLVM_DEBUG(dbgs() << "FixedOff: " << FixedOff << "\n");
+      LLVM_DEBUG(dbgs() << "MFI.getObjectOffset: " << MFI.getObjectOffset(i) << "\n");
+
     }
     if (FixedOff > Offset) Offset = FixedOff;
   }
@@ -895,7 +908,13 @@ void PEI::calculateFrameObjectOffsets(MachineFunction &MF) {
   Align MaxAlign = MFI.getMaxAlign();
   // First assign frame offsets to stack objects that are used to spill
   // callee saved registers.
+  // vicky: After this loop, Offset means the stack size, aka
+  // the "Offset" in "sub sp, sp, #Offset"
+  // Notice that here the offset means the distance between an objects
+  // and the old sp, rather the sp that had been do "sub, sp, sp, #Offset"
   if (MaxCSFrameIndex >= MinCSFrameIndex) {
+      LLVM_DEBUG(dbgs() << "MaxCSFrameIndex: " << MaxCSFrameIndex);
+      LLVM_DEBUG(dbgs() << " Min:" << MinCSFrameIndex << "\n");
     for (unsigned i = 0; i <= MaxCSFrameIndex - MinCSFrameIndex; ++i) {
       unsigned FrameIndex =
           StackGrowsDown ? MinCSFrameIndex + i : MaxCSFrameIndex - i;
@@ -908,10 +927,14 @@ void PEI::calculateFrameObjectOffsets(MachineFunction &MF) {
       if (!StackGrowsDown && MFI.isDeadObjectIndex(FrameIndex))
         continue;
 
+      LLVM_DEBUG(dbgs() << "FrameIndex: " << FrameIndex);
       AdjustStackOffset(MFI, FrameIndex, StackGrowsDown, Offset, MaxAlign,
                         Skew);
+      LLVM_DEBUG(dbgs() << ", Offset: " << Offset);
+      LLVM_DEBUG(dbgs() << ", size: " << MFI.getObjectSize(FrameIndex) << "\n");
     }
   }
+
 
   assert(MaxAlign == MFI.getMaxAlign() &&
          "MFI.getMaxAlign should already account for all callee-saved "
@@ -929,8 +952,11 @@ void PEI::calculateFrameObjectOffsets(MachineFunction &MF) {
   if (RS && EarlyScavengingSlots) {
     SmallVector<int, 2> SFIs;
     RS->getScavengingFrameIndices(SFIs);
-    for (int SFI : SFIs)
+    LLVM_DEBUG(dbgs() << "[" << __FUNCTION__ << "]" << __LINE__ << "\n");
+    for (int SFI : SFIs) {
       AdjustStackOffset(MFI, SFI, StackGrowsDown, Offset, MaxAlign, Skew);
+      LLVM_DEBUG(dbgs() << "Offset: " << Offset << "\n");
+    }
   }
 
   // FIXME: Once this is working, then enable flag will change to a target
@@ -955,6 +981,8 @@ void PEI::calculateFrameObjectOffsets(MachineFunction &MF) {
     }
     // Allocate the local block
     Offset += MFI.getLocalFrameSize();
+    LLVM_DEBUG(dbgs() << "[" << __FUNCTION__ << "]" << __LINE__ << "\n");
+    LLVM_DEBUG(dbgs() << "Offset:  " << Offset << "\n");
 
     MaxAlign = std::max(Alignment, MaxAlign);
   }
@@ -987,6 +1015,8 @@ void PEI::calculateFrameObjectOffsets(MachineFunction &MF) {
              "Stack protector on non-default stack expected to not be "
              "pre-allocated by LocalStackSlotPass.");
     } else if (!MFI.getUseLocalStackAllocationBlock()) {
+    LLVM_DEBUG(dbgs() << "[" << __FUNCTION__ << "]" << __LINE__ << "\n");
+    LLVM_DEBUG(dbgs() << "Offset:  " << Offset << "\n");
       AdjustStackOffset(MFI, StackProtectorFI, StackGrowsDown, Offset, MaxAlign,
                         Skew);
     } else if (!MFI.isObjectPreAllocated(MFI.getStackProtectorIndex())) {
@@ -1090,18 +1120,26 @@ void PEI::calculateFrameObjectOffsets(MachineFunction &MF) {
                           FixedCSEnd, StackBytesFree);
 
   // Now walk the objects and actually assign base offsets to them.
-  for (auto &Object : ObjectsToAllocate)
+    LLVM_DEBUG(dbgs() << "[" << __FUNCTION__ << "]" << __LINE__ << "\n");
+  for (auto &Object : ObjectsToAllocate) {
     if (!scavengeStackSlot(MFI, Object, StackGrowsDown, MaxAlign,
                            StackBytesFree))
       AdjustStackOffset(MFI, Object, StackGrowsDown, Offset, MaxAlign, Skew);
+    LLVM_DEBUG(dbgs() << "Object: " << Object << " Offset:  " << Offset << "\n");
+  }
+
 
   // Make sure the special register scavenging spill slot is closest to the
   // stack pointer.
   if (RS && !EarlyScavengingSlots) {
     SmallVector<int, 2> SFIs;
     RS->getScavengingFrameIndices(SFIs);
-    for (int SFI : SFIs)
+    for (int SFI : SFIs) {
       AdjustStackOffset(MFI, SFI, StackGrowsDown, Offset, MaxAlign, Skew);
+    LLVM_DEBUG(dbgs() << "[" << __FUNCTION__ << "]" << __LINE__ << "\n");
+    LLVM_DEBUG(dbgs() << "Offset:  " << Offset << "\n");
+    }
+
   }
 
   if (!TFI.targetHandlesStackFrameRounding()) {
@@ -1151,6 +1189,8 @@ void PEI::calculateFrameObjectOffsets(MachineFunction &MF) {
 
   // Update frame info to pretend that this is part of the stack...
   int64_t StackSize = Offset - LocalAreaOffset;
+  LLVM_DEBUG(dbgs() << "Offset: " << Offset << "\n");
+  LLVM_DEBUG(dbgs() << "stackSize: " << StackSize << "\n");
   MFI.setStackSize(StackSize);
   NumBytesStackSpace += StackSize;
 }

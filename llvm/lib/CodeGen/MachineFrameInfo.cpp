@@ -52,6 +52,7 @@ int MachineFrameInfo::CreateStackObject(uint64_t Size, Align Alignment,
                                         bool IsSpillSlot,
                                         const AllocaInst *Alloca,
                                         uint8_t StackID) {
+  LLVM_DEBUG(dbgs() << "[" << __FUNCTION__ << "]\n");
   assert(Size != 0 && "Cannot allocate zero size stack objects!");
   Alignment = clampStackAlignment(!StackRealignable, Alignment, StackAlignment);
   Objects.push_back(StackObject(Size, Alignment, 0, false, IsSpillSlot, Alloca,
@@ -60,6 +61,8 @@ int MachineFrameInfo::CreateStackObject(uint64_t Size, Align Alignment,
   assert(Index >= 0 && "Bad frame index!");
   if (contributesToMaxAlignment(StackID))
     ensureMaxAlignment(Alignment);
+  LLVM_DEBUG(dbgs() << "NumFixedObjects: " << NumFixedObjects << "\n");
+  LLVM_DEBUG(dbgs() << "Objects.size(): " << Objects.size() << " Index: " << Index);
   return Index;
 }
 
@@ -181,6 +184,7 @@ uint64_t MachineFrameInfo::estimateStackSize(const MachineFunction &MF) const {
   // If the frame pointer is eliminated, all frame offsets will be relative to
   // SP not FP. Align to MaxAlign so this works.
   StackAlign = std::max(StackAlign, MaxAlign);
+  //vicky
   return alignTo(Offset, StackAlign);
 }
 

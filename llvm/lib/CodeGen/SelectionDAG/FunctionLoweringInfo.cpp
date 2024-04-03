@@ -161,6 +161,7 @@ void FunctionLoweringInfo::set(const Function &fn, MachineFunction &mf,
                 TySize, 0, /*IsImmutable=*/false, /*isAliased=*/true);
             MF->getFrameInfo().setObjectAlignment(FrameIndex, Alignment);
           } else {
+	      errs() << "[" << __FUNCTION__ << "]\n";
             FrameIndex = MF->getFrameInfo().CreateStackObject(TySize, Alignment,
                                                               false, AI);
           }

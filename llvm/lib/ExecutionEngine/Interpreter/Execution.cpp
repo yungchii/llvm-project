@@ -2128,6 +2128,7 @@ void Interpreter::callFunction(Function *F, ArrayRef<GenericValue> ArgVals) {
   // Special handling for external functions.
   if (F->isDeclaration()) {
     GenericValue Result = callExternalFunction (F, ArgVals);
+    errs() << "F->getName(): " << F->getName() << "\n";
     // Simulate a 'ret' instruction of the appropriate type.
     popStackAndReturnValueToCaller (F->getReturnType (), Result);
     return;
