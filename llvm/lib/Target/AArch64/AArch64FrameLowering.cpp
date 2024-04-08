@@ -1345,7 +1345,7 @@ static void emitShadowCallStackPrologue(const TargetInstrInfo &TII,
   for (; MFI2 != MBB.getParent()->end(); MFI2++)
     for (auto MBBI2 = (*MFI2).begin(); MBBI2 != (*MFI2).end(); MBBI2++) {
 	auto &MI = *MBBI2;
-	if (MI.isCall()) {
+	if (MI.isCall() || MI.isIndirectBranch()) {
 	    errs() << "call target: " << MI.getOperand(0) << "\n";
 	   MachineBasicBlock::iterator MBBI3 = MBBI2;
 	   MBBI3++;
